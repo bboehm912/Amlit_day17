@@ -184,12 +184,35 @@ body {
   padding-bottom: 18px;
   border-bottom: 1px solid #e2e8f0;
 }
-label { font-weight: bold; margin-bottom: 6px; display: block; }
-input, textarea, select {
+.form-group > label {
+  font-weight: bold;
+  font-size: 1.05em;
+  margin-bottom: 4px;
+  display: block;
+}
+.form-subtext {
+  color: var(--text-muted);
+  font-size: 0.92em;
+  margin: 4px 0 12px 0;
+  line-height: 1.4;
+}
+.option-label {
+  font-weight: normal;
+  display: block;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.option-label input {
+  width: auto;
+  margin-right: 8px;
+}
+input[type="text"], textarea, select {
   width: 100%;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
 .submit-btn {
@@ -202,6 +225,7 @@ input, textarea, select {
   border: none;
   border-radius: 8px;
   cursor: pointer;
+  margin-top: 10px;
 }
 
 .tab-content { display: none; }
@@ -281,7 +305,6 @@ input, textarea, select {
     <h3>Student Work Checkpoint & Reflection</h3>
     <form id="checkpoint-form" onsubmit="event.preventDefault(); window.print();">
       <!-- Dynamic form fields injected by script.js -->
-      <button type="submit" class="submit-btn">Print this page and turn into the Red Basket!</button>
     </form>
   </div>
 
@@ -442,7 +465,6 @@ function renderResources(resources) {
 
 function renderForm(fields) {
   const form = document.getElementById('checkpoint-form');
-  const submitBtn = form.querySelector('.submit-btn');
   form.innerHTML = '';
 
   const fieldList = Array.isArray(fields) ? fields : [];
@@ -451,34 +473,52 @@ function renderForm(fields) {
     const group = document.createElement('div');
     group.className = 'form-group';
 
-    const label = field.label || field.prompt || `Question ${field.field_id || ''}`.trim() || 'Question';
-    const id = `field_${(field.field_id || label).toString().replace(/\s+/g, '_').toLowerCase()}`;
+    const labelText = field.label || field.prompt || `Question ${field.field_id || ''}`.trim() || 'Question';
+    const subText = field.subtext || field.description || field.hint || '';
+    const id = `field_${(field.field_id || labelText).toString().replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
+    const placeholderAttr = field.placeholder ? `placeholder="${field.placeholder}"` : '';
+    const requiredAttr = field.required ? 'required' : '';
 
     let inputHTML = '';
-    if (field.type === 'short_answer' || field.type === 'short_text' || field.type === 'text') {
-      inputHTML = `<input type="text" id="${id}" ${field.required ? 'required' : ''} />`;
-    } else if (field.type === 'date') {
-      inputHTML = `<input type="date" id="${id}" ${field.required ? 'required' : ''} />`;
-    } else if (field.type === 'long_text' || field.type === 'quote_citation' || field.type === 'reflection') {
-      inputHTML = `<textarea id="${id}" rows="5" ${field.required ? 'required' : ''}></textarea>`;
-    } else if (field.type === 'multiple_choice' || field.type === 'true_false') {
-      const options = field.type === 'true_false' ? ['True', 'False'] : (field.options || []);
-      inputHTML = options.map((option, index) => `<label><input type="radio" id="${id}_${index}" name="${id}" value="${option}" ${field.required ? 'required' : ''} /> ${option}</label>`).join('<br/>');
-    } else if (field.type === 'checkbox') {
-      inputHTML = (field.options || []).map((option, index) => `<label><input type="checkbox" id="${id}_${index}" name="${id}" value="${option}" /> ${option}</label>`).join('<br/>');
-    } else if (field.type === 'rating_scale') {
-      inputHTML = `<select id="${id}">${(field.options || []).map(o => `<option>${o}</option>`).join('')}</select>`;
-    } else if (field.type === 'select_rubric') {
-      inputHTML = `<select id="${id}"><option>-- Select Rubric Benchmark Level --</option>${(field.options || []).map(o => `<option>${o}</option>`).join('')}</select>`;
-    } else if (field.type === 'checkbox_group' || field.type === 'multi_select') {
-      inputHTML = (field.options || []).map(o => `<label><input type="checkbox" name="${id}" value="${o}" /> ${o}</label>`).join('<br/>');
+    const type = field.type;
+
+    if (type === 'short_answer' || type === 'short_text' || type === 'text') {
+      inputHTML = `<input type="text" id="${id}" name="${id}" ${placeholderAttr} ${requiredAttr} />`;
+    } else if (type === 'date') {
+      inputHTML = `<input type="date" id="${id}" name="${id}" ${requiredAttr} />`;
+    } else if (type === 'long_text' || type === 'quote_citation' || type === 'reflection') {
+      inputHTML = `<textarea id="${id}" name="${id}" rows="5" ${placeholderAttr} ${requiredAttr}></textarea>`;
+    } else if (type === 'multiple_choice' || type === 'true_false') {
+      const options = type === 'true_false' ? ['True', 'False'] : (field.options || []);
+      inputHTML = options.map((option, index) => 
+        `<label class="option-label"><input type="radio" id="${id}_${index}" name="${id}" value="${option}" ${requiredAttr} /> ${option}</label>`
+      ).join('');
+    } else if (type === 'checkbox') {
+      inputHTML = (field.options || []).map((option, index) => 
+        `<label class="option-label"><input type="checkbox" id="${id}_${index}" name="${id}" value="${option}" /> ${option}</label>`
+      ).join('');
+    } else if (type === 'rating_scale' || type === 'select_rubric' || type === 'select') {
+      const defaultOpt = type === 'select_rubric' ? '<option value="">-- Select Rubric Benchmark Level --</option>' : '<option value="">-- Select an Option --</option>';
+      inputHTML = `<select id="${id}" name="${id}" ${requiredAttr}>${defaultOpt}${(field.options || []).map(o => `<option value="${o}">${o}</option>`).join('')}</select>`;
+    } else if (type === 'checkbox_group' || type === 'multi_select') {
+      inputHTML = (field.options || []).map((option, index) => 
+        `<label class="option-label"><input type="checkbox" id="${id}_${index}" name="${id}[]" value="${option}" /> ${option}</label>`
+      ).join('');
     }
 
-    group.innerHTML = `<label for="${id}">${label}</label>${inputHTML}`;
+    group.innerHTML = `
+      <label for="${id}">${labelText}</label>
+      ${subText ? `<p class="form-subtext">${subText}</p>` : ''}
+      ${inputHTML}
+    `;
     form.appendChild(group);
   });
 
-  if (submitBtn) form.appendChild(submitBtn);
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.className = 'submit-btn';
+  submitBtn.innerText = 'Print this page and turn into the Red Basket!';
+  form.appendChild(submitBtn);
 }
 
 function switchTab(key) {
